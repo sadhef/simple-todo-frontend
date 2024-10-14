@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getTodos, createTodo, updateTodo, deleteTodo } from '../utils/api';
+import TodoList from '../components/TodoList';
 
 function HomePage() {
   const [todos, setTodos] = useState([]);
@@ -19,6 +20,9 @@ function HomePage() {
     } catch (error) {
       console.error('Error fetching todos:', error);
       setError('Failed to fetch todos');
+      if (error.response && error.response.status === 401) {
+        navigate('/login');
+      }
     }
   };
 
@@ -26,21 +30,22 @@ function HomePage() {
     e.preventDefault();
     if (!newTodo.trim()) return;
     try {
-      await createTodo({ title: newTodo });
+      const response = await createTodo({ title: newTodo });
+      setTodos([...todos, response.data]);
       setNewTodo('');
-      fetchTodos();
     } catch (error) {
       console.error('Error adding todo:', error);
       setError('Failed to add todo');
     }
   };
 
-  const handleToggleTodo = async (id, completed) => {
+  const handleToggleTodo = async (id) => {
     try {
-      await updateTodo(id, { completed: !completed });
-      fetchTodos();
+      const todoToToggle = todos.find(todo => todo._id === id);
+      const updatedTodo = await updateTodo(id, { completed: !todoToToggle.completed });
+      setTodos(todos.map(todo => todo._id === id ? updatedTodo.data : todo));
     } catch (error) {
-      console.error('Error updating todo:', error);
+      console.error('Error toggling todo:', error);
       setError('Failed to update todo');
     }
   };
@@ -48,7 +53,7 @@ function HomePage() {
   const handleDeleteTodo = async (id) => {
     try {
       await deleteTodo(id);
-      fetchTodos();
+      setTodos(todos.filter(todo => todo._id !== id));
     } catch (error) {
       console.error('Error deleting todo:', error);
       setError('Failed to delete todo');
@@ -93,29 +98,11 @@ function HomePage() {
                 </button>
               </div>
             </form>
-            <ul className="divide-y divide-gray-200">
-              {todos.map((todo) => (
-                <li key={todo._id} className="py-4 flex items-center justify-between">
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={todo.completed}
-                      onChange={() => handleToggleTodo(todo._id, todo.completed)}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <span className={`ml-3 ${todo.completed ? 'line-through text-gray-500' : 'text-gray-900'}`}>
-                      {todo.title}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => handleDeleteTodo(todo._id)}
-                    className="ml-2 px-2 py-1 text-xs text-white bg-red-500 rounded hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50"
-                  >
-                    Delete
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <TodoList
+              todos={todos}
+              onToggle={handleToggleTodo}
+              onDelete={handleDeleteTodo}
+            />
           </div>
         </div>
       </div>
